@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Todo App</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://js.puter.com/v2/"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-top">
+        <div>
+          <h1>Todo</h1>
+          <p class="tagline">Cloud-synced tasks with Puter.js</p>
+        </div>
+        <div class="auth" id="auth-bar">
+          <span class="auth-user" id="auth-user" hidden></span>
+          <button type="button" class="btn btn-ghost" id="sign-in-btn">Sign in</button>
+          <button type="button" class="btn btn-ghost" id="sign-out-btn" hidden>Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="card" id="main-card">
+      <section class="add-section">
+        <div class="input-row">
+          <input
+            type="text"
+            id="todo-input"
+            placeholder="What needs to be done?"
+            autocomplete="off"
+            maxlength="500"
+          >
+          <button type="button" class="btn btn-primary" id="add-btn">Add</button>
+        </div>
+      </section>
+
+      <nav class="filters" aria-label="Filter todos">
+        <button type="button" class="filter-btn active" data-filter="all">All</button>
+        <button type="button" class="filter-btn" data-filter="active">Active</button>
+        <button type="button" class="filter-btn" data-filter="completed">Completed</button>
+      </nav>
+
+      <section class="list-section">
+        <ul class="todo-list" id="todo-list" hidden></ul>
+        <div class="empty-state" id="empty-state">
+          <p class="empty-title">No todos yet</p>
+          <p class="empty-hint">Sign in and add your first task above.</p>
+        </div>
+      </section>
+
+      <footer class="stats">
+        <span id="todo-count">0 items left</span>
+        <button type="button" class="btn btn-text" id="clear-completed" disabled>Clear completed</button>
+      </footer>
+    </main>
+
+    <footer class="site-footer">
+      <a href="https://developer.puter.com" target="_blank" rel="noopener noreferrer">Powered by Puter</a>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="overlay" id="overlay" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p>Syncing with cloud…</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
