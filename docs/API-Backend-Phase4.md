@@ -563,7 +563,7 @@ src/
 | API-05 | Free-text question search in MVP | SQL LIKE/iLIKE (bounded) | Exclude from MVP; filters only | Content discoverability |
 | API-06 | Pagination style | offset vs keyset cursor | Offset (page/page_size) for MVP | Deep-page perf at scale |
 
-**Assumptions carried from prior phases:** single-tenant; OD-06 unanswered=skipped; OD-07 author≠publisher; MAC/accuracy thresholds from OD-05; notes/mock/import remain Future/Should (not new features); response envelope (§4) chosen and fixed.
+**Assumptions carried from prior phases:** single-tenant; OD-06 unanswered=skipped; OD-07 author≠publisher; weak-accuracy thresholds from OD-05; notes/mock/import remain Future/Should (not new features); response envelope (§4) chosen and fixed.
 
 ---
 
