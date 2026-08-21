@@ -1,0 +1,23 @@
+{
+  "name": "gate-pyq-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GATE CS & IT PYQ Practice Platform — monorepo (Express backend + Next.js frontend). Foundation only (Phase 6); no application features yet.",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n backend,frontend -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.3.3"
+  }
+}

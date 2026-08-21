@@ -1,0 +1,23 @@
+// ─────────────────────────────────────────────────────────────
+// PHASE 6 — PRISMA FOUNDATION
+// Full Phase 3 schema (users, subjects, topics, questions, attempts,
+// bookmarks, notes, audit_log, ...) arrives in Phase 7.
+//
+// The single placeholder model below keeps `prisma generate` and
+// `prisma validate` green today, so the toolchain is verified.
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SchemaFoundation {
+  id String @id @default(cuid())
+
+  @@map("_schema_foundation")
+}

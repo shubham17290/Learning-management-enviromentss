@@ -1,0 +1,39 @@
+# ─── Dependencies ───
+node_modules/
+
+# ─── Environment (never commit secrets) ───
+.env
+.env.*
+!.env.example
+.env.local
+.env.production
+.env.test
+
+# ─── Build output ───
+dist/
+build/
+out/
+.next/
+next-env.d.ts
+
+# ─── Prisma ───
+.prisma/
+apps/backend/prisma/backups/
+
+# ─── Logs ───
+*.log
+npm-debug.log*
+
+# ─── TypeScript ───
+*.tsbuildinfo
+coverage/
+
+# ─── OS / editors ───
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ─── Database (local dev) ───
+*.sqlite
+*.sqlite3
