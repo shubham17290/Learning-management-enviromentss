@@ -1,7 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // PHASE 7 — DATABASE IMPLEMENTATION
 // Prisma schema implementing the approved Phase 3 Database Design
-// for GATE CS & IT PYQ Practice Platform
+// (docs/DB-Model-Phase3.md) for GATE CS & IT PYQ Practice Platform
+//
+// Conventions (Phase 3 §2):
+//   - tables/columns snake_case via @map/@@map
+//   - stable fixed value sets = text + CHECK constraints (§6, §8, §13.2)
+//   - extensible sets (roles, question_types, practice_modes) = lookup tables
+//   - CHECK constraints live in migration SQL (Prisma cannot express them)
 // ─────────────────────────────────────────────────────────────
 
 generator client {
@@ -14,80 +20,35 @@ datasource db {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ENUMS (for stable, fixed value sets per Phase 3 decisions)
-// ─────────────────────────────────────────────────────────────
-
-enum Difficulty {
-  easy
-  medium
-  hard
-}
-
-enum QuestionStatus {
-  draft
-  in_review
-  published
-  rejected
-  archived
-}
-
-enum UserStatus {
-  active
-  disabled
-}
-
-enum SessionStatus {
-  in_progress
-  submitted
-  completed
-  abandoned
-}
-
-enum PracticeModeCode {
-  subject
-  topic
-  year
-  difficulty
-  mistake
-  custom
-}
-
-enum ReportStatus {
-  open
-  reviewed
-  resolved
-  dismissed
-}
-
-// ─────────────────────────────────────────────────────────────
-// USERS & ACCESS
+// USERS & ACCESS (Phase 3 §6.1–6.4)
 // ─────────────────────────────────────────────────────────────
 
 model Role {
-  id       String  @id @default(uuid()) @map("id")
-  code     String  @unique @map("code")
+  id       String  @id @default(uuid(7)) @map("id")
+  code     String  @unique(map: "uq_roles_code") @map("code")
   name     String  @map("name")
   isActive Boolean @default(true) @map("is_active")
-  users    User[]
+
+  users User[]
 
   @@map("roles")
 }
 
 model User {
-  id              String     @id @default(uuid()) @map("id")
-  email           String     @unique @map("email")
-  passwordHash    String     @map("password_hash")
-  roleId          String     @default("student") @map("role_id")
-  fullName        String     @map("full_name")
-  status          UserStatus @default(active) @map("status")
-  targetSubjectId String?    @map("target_subject_id")
-  emailVerifiedAt DateTime?  @map("email_verified_at")
-  createdAt       DateTime   @default(now()) @map("created_at")
-  updatedAt       DateTime   @updatedAt @map("updated_at")
-  deletedAt       DateTime?  @map("deleted_at")
+  id              String    @id @default(uuid(7)) @map("id")
+  email           String    @unique(map: "uq_users_email") @map("email")
+  passwordHash    String    @map("password_hash")
+  roleId          String    @map("role_id")
+  fullName        String    @map("full_name")
+  status          String    @default("active") @map("status")
+  targetSubjectId String?   @map("target_subject_id")
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
 
   role                Role                 @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  targetSubject       Subject?             @relation("UserTargetSubject", fields: [targetSubjectId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  targetSubject       Subject?             @relation("UserTargetSubject", fields: [targetSubjectId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
   practiceSessions    PracticeSession[]
@@ -100,62 +61,58 @@ model User {
   reviewedQuestions   Question[]           @relation("QuestionReviewedBy")
   questionVersions    QuestionVersion[]
 
-  @@index([roleId])
-  @@index([targetSubjectId])
   @@map("users")
 }
 
 model Session {
-  id        String    @id @default(uuid()) @map("id")
+  id        String    @id @default(uuid(7)) @map("id")
   userId    String    @map("user_id")
-  tokenHash String    @unique @map("token_hash")
+  tokenHash String    @unique(map: "uq_sessions_token_hash") @map("token_hash")
   ip        String?   @map("ip") @db.Inet
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId], map: "ix_sessions_user_id")
   @@map("sessions")
 }
 
 model PasswordResetToken {
-  id        String    @id @default(uuid()) @map("id")
+  id        String    @id @default(uuid(7)) @map("id")
   userId    String    @map("user_id")
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
+  tokenHash String    @unique(map: "uq_password_reset_tokens_token_hash") @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@map("password_reset_tokens")
 }
 
 // ─────────────────────────────────────────────────────────────
-// ACADEMIC STRUCTURE (TAXONOMY)
+// ACADEMIC STRUCTURE / TAXONOMY (Phase 3 §6.5–6.8)
 // ─────────────────────────────────────────────────────────────
 
 model Subject {
-  id        String    @id @default(uuid()) @map("id")
-  code      String    @unique @map("code")
-  name      String    @unique @map("name")
+  id        String    @id @default(uuid(7)) @map("id")
+  code      String    @unique(map: "uq_subjects_code") @map("code")
+  name      String    @unique(map: "uq_subjects_name") @map("name")
   sortOrder Int       @default(0) @map("sort_order")
   isActive  Boolean   @default(true) @map("is_active")
-  deletedAt DateTime? @map("deleted_at")
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
 
   chapters    Chapter[]
   topics      Topic[]
+  subtopics   Subtopic[]
   questions   Question[]
   targetUsers User[]     @relation("UserTargetSubject")
-  subtopics   Subtopic[]
 
-  @@index([isActive])
   @@map("subjects")
 }
 
 model Chapter {
-  id        String @id @default(uuid()) @map("id")
+  id        String @id @default(uuid(7)) @map("id")
   subjectId String @map("subject_id")
   name      String @map("name")
   sortOrder Int    @default(0) @map("sort_order")
@@ -163,12 +120,11 @@ model Chapter {
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   topics  Topic[]
 
-  @@index([subjectId])
   @@map("chapters")
 }
 
 model Topic {
-  id        String  @id @default(uuid()) @map("id")
+  id        String  @id @default(uuid(7)) @map("id")
   subjectId String  @map("subject_id")
   chapterId String? @map("chapter_id")
   name      String  @map("name")
@@ -180,14 +136,12 @@ model Topic {
   subtopics Subtopic[]
   questions Question[]
 
-  @@index([subjectId])
-  @@index([chapterId])
-  @@index([isActive])
+  @@index([subjectId], map: "ix_topics_subject_id")
   @@map("topics")
 }
 
 model Subtopic {
-  id        String @id @default(uuid()) @map("id")
+  id        String @id @default(uuid(7)) @map("id")
   topicId   String @map("topic_id")
   subjectId String @map("subject_id")
   name      String @map("name")
@@ -195,18 +149,16 @@ model Subtopic {
   topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  @@index([topicId])
-  @@index([subjectId])
   @@map("subtopics")
 }
 
 // ─────────────────────────────────────────────────────────────
-// QUESTIONS & CONTENT
+// QUESTIONS & CONTENT (Phase 3 §6.9–6.14)
 // ─────────────────────────────────────────────────────────────
 
 model QuestionType {
-  id               String  @id @default(uuid()) @map("id")
-  code             String  @unique @map("code")
+  id               String  @id @default(uuid(7)) @map("id")
+  code             String  @unique(map: "uq_question_types_code") @map("code")
   name             String  @map("name")
   hasOptions       Boolean @map("has_options")
   hasNumeric       Boolean @map("has_numeric")
@@ -218,8 +170,8 @@ model QuestionType {
 }
 
 model QuestionSource {
-  id          String  @id @default(uuid()) @map("id")
-  name        String  @unique @map("name")
+  id          String  @id @default(uuid(7)) @map("id")
+  name        String  @unique(map: "uq_question_sources_name") @map("name")
   examYear    Int     @map("exam_year")
   paperNumber String? @map("paper_number")
   shift       String? @map("shift")
@@ -227,28 +179,27 @@ model QuestionSource {
 
   questions Question[]
 
-  @@index([examYear])
   @@map("question_sources")
 }
 
 model Question {
-  id             String         @id @default(uuid()) @map("id")
-  questionTypeId String         @map("question_type_id")
-  subjectId      String         @map("subject_id")
-  topicId        String?        @map("topic_id")
-  body           String         @map("body")
-  explanation    String?        @map("explanation")
-  marks          Decimal        @default(1) @map("marks") @db.Decimal(4, 1)
-  negativeMarks  Decimal?       @default(0) @map("negative_marks") @db.Decimal(4, 1)
-  difficulty     Difficulty     @default(medium) @map("difficulty")
-  status         QuestionStatus @default(draft) @map("status")
-  version        Int            @default(1) @map("version")
-  gateYear       Int            @map("gate_year")
-  sourceId       String?        @map("source_id")
-  createdById    String         @map("created_by")
-  reviewedById   String?        @map("reviewed_by")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id             String   @id @default(uuid(7)) @map("id")
+  questionTypeId String   @map("question_type_id")
+  subjectId      String   @map("subject_id")
+  topicId        String?  @map("topic_id")
+  body           String   @map("body")
+  explanation    String?  @map("explanation")
+  marks          Decimal  @default(1) @map("marks") @db.Decimal(4, 1)
+  negativeMarks  Decimal? @default(0) @map("negative_marks") @db.Decimal(4, 1)
+  difficulty     String   @default("medium") @map("difficulty")
+  status         String   @default("draft") @map("status")
+  version        Int      @default(1) @map("version")
+  gateYear       Int      @map("gate_year")
+  sourceId       String?  @map("source_id")
+  createdById    String   @map("created_by")
+  reviewedById   String?  @map("reviewed_by")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   questionType   QuestionType            @relation(fields: [questionTypeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   subject        Subject                 @relation(fields: [subjectId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -262,40 +213,32 @@ model Question {
   bookmarks      Bookmark[]
   notes          Note[]
   reports        QuestionReport[]
-  attempts       Attempt[]
 
-  @@index([questionTypeId])
-  @@index([subjectId])
-  @@index([topicId])
-  @@index([sourceId])
-  @@index([createdById])
-  @@index([reviewedById])
-  @@index([status, topicId, gateYear], name: "ix_questions_status_published_topic")
-  @@index([subjectId, status], name: "ix_questions_subject_status")
-  @@index([gateYear])
+  @@index([status, topicId, gateYear], map: "ix_questions_status_published_topic")
+  @@index([subjectId, status], map: "ix_questions_subject_status")
   @@map("questions")
 }
 
 model QuestionVersion {
-  id          String   @id @default(uuid()) @map("id")
+  id          String   @id @default(uuid(7)) @map("id")
   questionId  String   @map("question_id")
   version     Int      @map("version")
   snapshot    Json     @map("snapshot")
   reason      String?  @map("reason")
   createdById String   @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   question  Question  @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts  Attempt[]
 
-  @@unique([questionId, version], name: "uq_question_versions_question_id_version")
-  @@index([questionId])
+  @@unique([questionId, version], map: "uq_question_versions_question_id_version")
+  @@index([questionId], map: "ix_question_versions_question_id")
   @@map("question_versions")
 }
 
 model QuestionOption {
-  id         String  @id @default(uuid()) @map("id")
+  id         String  @id @default(uuid(7)) @map("id")
   questionId String  @map("question_id")
   body       String  @map("body")
   isCorrect  Boolean @default(false) @map("is_correct")
@@ -303,12 +246,12 @@ model QuestionOption {
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  @@index([questionId])
+  @@index([questionId], map: "ix_question_options_question_id")
   @@map("question_options")
 }
 
 model QuestionNumericAnswer {
-  id           String   @id @default(uuid()) @map("id")
+  id           String   @id @default(uuid(7)) @map("id")
   questionId   String   @map("question_id")
   numericValue Decimal  @map("numeric_value") @db.Decimal(20, 8)
   toleranceAbs Decimal? @default(0) @map("tolerance_abs") @db.Decimal(20, 8)
@@ -318,18 +261,17 @@ model QuestionNumericAnswer {
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
-  @@index([questionId])
   @@map("question_numeric_answers")
 }
 
 // ─────────────────────────────────────────────────────────────
-// PRACTICE
+// PRACTICE (Phase 3 §6.15–6.17)
 // ─────────────────────────────────────────────────────────────
 
 model PracticeMode {
-  id   String           @id @default(uuid()) @map("id")
-  code PracticeModeCode @unique @map("code")
-  name String           @map("name")
+  id   String @id @default(uuid(7)) @map("id")
+  code String @unique(map: "uq_practice_modes_code") @map("code")
+  name String @map("name")
 
   sessions PracticeSession[]
 
@@ -337,31 +279,27 @@ model PracticeMode {
 }
 
 model PracticeSession {
-  id             String        @id @default(uuid()) @map("id")
-  userId         String        @map("user_id")
-  modeId         String        @map("mode_id")
-  config         Json          @default("{}") @map("config")
-  timed          Boolean       @default(false) @map("timed")
-  totalQuestions Int           @map("total_questions")
-  status         SessionStatus @default(in_progress) @map("status")
-  startedAt      DateTime      @default(now()) @map("started_at")
-  endedAt        DateTime?     @map("ended_at")
-  abandonedAt    DateTime?     @map("abandoned_at")
-  score          Decimal?      @map("score") @db.Decimal(8, 2)
+  id             String    @id @default(uuid(7)) @map("id")
+  userId         String    @map("user_id")
+  modeId         String    @map("mode_id")
+  config         Json      @default("{}") @map("config")
+  timed          Boolean   @default(false) @map("timed")
+  totalQuestions Int       @map("total_questions")
+  status         String    @default("in_progress") @map("status")
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz
+  abandonedAt    DateTime? @map("abandoned_at") @db.Timestamptz
+  score          Decimal?  @map("score") @db.Decimal(8, 2)
 
   user     User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   mode     PracticeMode @relation(fields: [modeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   attempts Attempt[]
 
-  @@index([userId])
-  @@index([modeId])
-  @@index([status])
-  @@index([startedAt])
   @@map("practice_sessions")
 }
 
 model Attempt {
-  id                String   @id @default(uuid()) @map("id")
+  id                String   @id @default(uuid(7)) @map("id")
   sessionId         String   @map("session_id")
   userId            String   @map("user_id")
   questionVersionId String   @map("question_version_id")
@@ -370,76 +308,68 @@ model Attempt {
   isCorrect         Boolean  @map("is_correct")
   marks             Decimal  @default(0) @map("marks") @db.Decimal(6, 2)
   timeTakenSeconds  Int      @map("time_taken_seconds")
-  answeredAt        DateTime @default(now()) @map("answered_at")
+  answeredAt        DateTime @default(now()) @map("answered_at") @db.Timestamptz
   responseVersion   Int      @default(1) @map("response_version")
 
   session         PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   user            User            @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   questionVersion QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  Question        Question?       @relation(fields: [questionId], references: [id])
-  questionId      String?
 
-  @@index([userId, answeredAt], name: "ix_attempts_user_id_answered_at")
-  @@index([questionVersionId], name: "ix_attempts_question_version_id")
-  @@index([sessionId], name: "ix_attempts_session_id")
+  @@index([userId, answeredAt], map: "ix_attempts_user_id_answered_at")
+  @@index([questionVersionId], map: "ix_attempts_question_version_id")
+  @@index([sessionId], map: "ix_attempts_session_id")
   @@map("attempts")
 }
 
 // ─────────────────────────────────────────────────────────────
-// STUDENT FEATURES
+// STUDENT FEATURES (Phase 3 §6.18–6.19)
 // ─────────────────────────────────────────────────────────────
 
 model Bookmark {
-  id         String   @id @default(uuid()) @map("id")
+  id         String   @id @default(uuid(7)) @map("id")
   userId     String   @map("user_id")
   questionId String   @map("question_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@unique([userId, questionId], name: "uq_bookmarks_user_question")
-  @@index([userId])
-  @@index([questionId])
+  @@unique([userId, questionId], map: "uq_bookmarks_user_question")
   @@map("bookmarks")
 }
 
 model Note {
-  id         String   @id @default(uuid()) @map("id")
+  id         String   @id @default(uuid(7)) @map("id")
   userId     String   @map("user_id")
   questionId String   @map("question_id")
   body       String   @map("body")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@index([userId])
-  @@index([questionId])
   @@map("notes")
 }
 
 // ─────────────────────────────────────────────────────────────
-// CONTENT ADMINISTRATION
+// CONTENT ADMINISTRATION (Phase 3 §6.20–6.21)
 // ─────────────────────────────────────────────────────────────
 
 model QuestionReport {
-  id             String       @id @default(uuid()) @map("id")
-  questionId     String       @map("question_id")
-  reporterUserId String       @map("reporter_user_id")
-  reason         String       @map("reason")
-  detail         String?      @map("detail")
-  status         ReportStatus @default(open) @map("status")
-  resolution     String?      @map("resolution")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  id             String   @id @default(uuid(7)) @map("id")
+  questionId     String   @map("question_id")
+  reporterUserId String   @map("reporter_user_id")
+  reason         String   @map("reason")
+  detail         String?  @map("detail")
+  status         String   @default("open") @map("status")
+  resolution     String?  @map("resolution")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reporter User     @relation(fields: [reporterUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  @@index([questionId])
-  @@index([reporterUserId])
-  @@index([status])
+  @@index([status], map: "ix_question_reports_status")
   @@map("question_reports")
 }
 
@@ -451,11 +381,11 @@ model AuditLog {
   entityId   String   @map("entity_id")
   before     Json?    @map("before")
   after      Json?    @map("after")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   actor User @relation(fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
-  @@index([actorId])
-  @@index([entityType, entityId], name: "ix_audit_log_entity_type_entity_id")
+  @@index([actorId], map: "ix_audit_log_actor_id")
+  @@index([entityType, entityId], map: "ix_audit_log_entity_type_entity_id")
   @@map("audit_log")
 }
