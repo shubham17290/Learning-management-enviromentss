@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PHASE 5 §5 — design tokens (UI-04: CSS variables) */
+:root {
+  --bg: #fafafa;            /* app background */
+  --surface: #ffffff;       /* cards, panels */
+  --primary: #3b5bdb;       /* deep indigo */
+  --primary-strong: #2f4ac0;
+  --primary-soft: #edf1fe;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --success: #1f8a4c;
+  --success-soft: #e7f4ec;
+  --warning: #b7791f;
+  --warning-soft: #fdf3e0;
+  --danger: #c6363a;
+  --danger-soft: #fbeaea;
+  --info: #2b6cb0;
+  --border: #e5e5e5;
+
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  --shadow-low: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.05);
+  --shadow-med: 0 4px 12px rgb(16 24 40 / 0.12);
+}
+
+@layer base {
+  html {
+    @apply bg-[color:var(--bg)] text-[color:var(--text)];
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    @apply antialiased leading-relaxed;
+    font-size: 15.5px;
+  }
+  /* visible focus ring everywhere (Phase 5 §12) */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .skeleton {
+    @apply animate-pulse rounded-md bg-gray-200/70;
+  }
+  /* minimum touch target (Phase 5 §11/§12) */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
