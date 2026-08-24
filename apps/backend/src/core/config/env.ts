@@ -13,9 +13,9 @@ export const config = {
   apiPrefix: "/api/v1",
 
   corsOrigin: (() => {
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL;
+    const origin = process.env.FRONTEND_ORIGIN ?? "http://localhost:3000";
     try {
-      return base ? new URL(base).origin : "http://localhost:3000";
+      return new URL(origin).origin;
     } catch {
       return "http://localhost:3000";
     }
