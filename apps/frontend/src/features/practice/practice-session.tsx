@@ -35,8 +35,8 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
   const [completing, setCompleting] = useState(false);
   const [notLive, setNotLive] = useState<"completed" | "abandoned" | null>(null);
 
-  const questionStartRef = useRef<number>(Date.now());
-  const [, forceTick] = useState(0);
+  const questionStartRef = useRef<number>(0);
+  const [now, setNow] = useState(0);
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
@@ -75,7 +75,7 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
 
       // Enrich header badges (subject/topic) from public question details.
       const details = await Promise.allSettled(
-        sessionState.questions.map((item) => questionsService.get(item.id)),
+        sessionState.questions.map((item) => questionsService.get(item.id))
       );
       const metaMap: Record<string, PublicQuestion> = {};
       details.forEach((entry) => {
@@ -83,14 +83,16 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
       });
       setMeta(metaMap);
     } catch (error) {
-      setLoadError(error instanceof ApiError ? error : new ApiError(500, "UNKNOWN", "Unexpected error."));
+      setLoadError(
+        error instanceof ApiError ? error : new ApiError(500, "UNKNOWN", "Unexpected error.")
+      );
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
   useEffect(() => {
-    void bootstrap();
+    const timer = window.setTimeout(() => void bootstrap(), 0);
     void studentService
       .bookmarks(1)
       .then((page) => {
@@ -105,14 +107,14 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
   // Elapsed timer ticks every second while the session is live (server anchor).
   useEffect(() => {
     if (!state || state.status !== "in_progress") return;
-    const interval = setInterval(() => forceTick((value) => value + 1), 1000);
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, [state]);
 
   const elapsedSeconds = useMemo(() => {
     if (!state) return 0;
-    return Math.max(0, Math.floor((Date.now() - new Date(state.started_at).getTime()) / 1000));
-  }, [state, forceTick]); // eslint-disable-line react-hooks/exhaustive-deps
+    return Math.max(0, Math.floor((now - new Date(state.started_at).getTime()) / 1000));
+  }, [state, now]);
 
   useEffect(() => {
     questionStartRef.current = Date.now();
@@ -127,7 +129,10 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
     }
     setSaving(true);
     try {
-      const elapsed = Math.min(3600, Math.max(0, Math.floor((Date.now() - questionStartRef.current) / 1000)));
+      const elapsed = Math.min(
+        3600,
+        Math.max(0, Math.floor((now - questionStartRef.current) / 1000))
+      );
       const result = await practiceService.attempt(state.session_id, {
         question_id: question.id,
         answer: draft as Record<string, unknown>,
@@ -137,11 +142,16 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1600);
       notify(
-        result.is_correct ? "Correct! 🎉" : result.marks > 0 ? `Saved — partial credit (+${result.marks})` : "Saved — incorrect",
-        result.is_correct ? "success" : "error",
+        result.is_correct
+          ? "Correct! 🎉"
+          : result.marks > 0
+            ? `Saved — partial credit (+${result.marks})`
+            : "Saved — incorrect",
+        result.is_correct ? "success" : "error"
       );
     } catch (error) {
-      if (error instanceof ApiError && error.code === "CONFLICT_SESSION_NOT_LIVE") setNotLive("completed");
+      if (error instanceof ApiError && error.code === "CONFLICT_SESSION_NOT_LIVE")
+        setNotLive("completed");
       else notify(error instanceof ApiError ? error.message : "Could not save answer.", "error");
     } finally {
       setSaving(false);
@@ -199,12 +209,19 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
   if (notLive) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <p className="text-4xl" aria-hidden="true">{notLive === "abandoned" ? "⏸" : "✅"}</p>
+        <p className="text-4xl" aria-hidden="true">
+          {notLive === "abandoned" ? "⏸" : "✅"}
+        </p>
         <h1 className="mt-3 text-xl font-bold">
-          {notLive === "abandoned" ? "This session was abandoned" : "This session is already completed"}
+          {notLive === "abandoned"
+            ? "This session was abandoned"
+            : "This session is already completed"}
         </h1>
         <div className="mt-5 flex justify-center gap-3">
-          <Link href="/practice" className="touch-target inline-flex items-center rounded-md2 border border-line bg-surface px-4 font-medium">
+          <Link
+            href="/practice"
+            className="touch-target inline-flex items-center rounded-md2 border border-line bg-surface px-4 font-medium"
+          >
             New session
           </Link>
           <Link
@@ -226,7 +243,9 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center text-muted">
         This session has no questions.{" "}
-        <Link className="font-medium text-primary" href="/practice">Set up a new one.</Link>
+        <Link className="font-medium text-primary" href="/practice">
+          Set up a new one.
+        </Link>
       </div>
     );
   }
@@ -260,7 +279,9 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
             <button
               type="button"
               onClick={() => void toggleBookmark()}
-              aria-label={bookmarksByQuestion[question.id] ? "Remove bookmark" : "Bookmark this question"}
+              aria-label={
+                bookmarksByQuestion[question.id] ? "Remove bookmark" : "Bookmark this question"
+              }
               aria-pressed={Boolean(bookmarksByQuestion[question.id])}
               className="touch-target rounded-md2 border border-line bg-surface px-2 text-lg"
             >
@@ -290,7 +311,11 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
         </Badge>
         {graded && (
           <Badge tone={graded.is_correct ? "success" : graded.marks > 0 ? "warning" : "danger"}>
-            {graded.is_correct ? "✓ Correct" : graded.marks > 0 ? `◐ Partial +${graded.marks}` : "✗ Incorrect"}
+            {graded.is_correct
+              ? "✓ Correct"
+              : graded.marks > 0
+                ? `◐ Partial +${graded.marks}`
+                : "✗ Incorrect"}
           </Badge>
         )}
         {marked.has(question.id) && <Badge tone="warning">⚑ Marked</Badge>}
@@ -304,12 +329,17 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
             question={question}
             disabled={isLocked}
             selected={draft ?? null}
-            onSelect={(answer) => setDrafts((currentDrafts) => ({ ...currentDrafts, [question.id]: answer }))}
+            onSelect={(answer) =>
+              setDrafts((currentDrafts) => ({ ...currentDrafts, [question.id]: answer }))
+            }
             gradedResult={graded ?? null}
           />
         </div>
         {graded && (
-          <p role="status" className={`mt-4 rounded-md2 px-3 py-2 text-sm font-medium ${graded.is_correct ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
+          <p
+            role="status"
+            className={`mt-4 rounded-md2 px-3 py-2 text-sm font-medium ${graded.is_correct ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}
+          >
             {graded.is_correct
               ? `Correct — +${graded.marks} marks`
               : graded.marks > 0
@@ -333,7 +363,9 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
           }
           aria-pressed={marked.has(question.id)}
           className={`touch-target inline-flex items-center justify-center gap-1.5 rounded-md2 border px-4 text-sm font-medium ${
-            marked.has(question.id) ? "border-warning bg-warning-soft text-warning" : "border-line bg-surface text-muted"
+            marked.has(question.id)
+              ? "border-warning bg-warning-soft text-warning"
+              : "border-line bg-surface text-muted"
           }`}
         >
           ⚑ {marked.has(question.id) ? "Marked for review" : "Mark for review"}
@@ -352,7 +384,12 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
         className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-2 backdrop-blur sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:px-0"
       >
         <div className="mx-auto flex max-w-content items-center gap-3">
-          <Button variant="secondary" size="sm" disabled={current === 0} onClick={() => goTo(current - 1)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={current === 0}
+            onClick={() => goTo(current - 1)}
+          >
             ← Prev
           </Button>
           <Palette
@@ -364,7 +401,9 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
             onGo={goTo}
           />
           {current < questions.length - 1 ? (
-            <Button size="sm" onClick={() => goTo(current + 1)}>Next →</Button>
+            <Button size="sm" onClick={() => goTo(current + 1)}>
+              Next →
+            </Button>
           ) : (
             <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={completing}>
               Finish ✓
@@ -375,18 +414,25 @@ export function PracticeSessionPage({ sessionId }: { sessionId: string }) {
 
       <Modal open={confirmOpen} title="Submit session?" onClose={() => setConfirmOpen(false)}>
         <p className="text-sm text-muted">
-          You answered <strong>{answeredCount}</strong> of <strong>{questions.length}</strong> questions.
+          You answered <strong>{answeredCount}</strong> of <strong>{questions.length}</strong>{" "}
+          questions.
           {questions.length - answeredCount > 0 && (
             <>
               {" "}
-              <strong className="text-warning">{questions.length - answeredCount} unanswered</strong> — they will be
-              skipped and not scored.
+              <strong className="text-warning">
+                {questions.length - answeredCount} unanswered
+              </strong>{" "}
+              — they will be skipped and not scored.
             </>
           )}
         </p>
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConfirmOpen(false)}>Keep solving</Button>
-          <Button loading={completing} onClick={() => void onComplete()}>Submit &amp; view result</Button>
+          <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
+            Keep solving
+          </Button>
+          <Button loading={completing} onClick={() => void onComplete()}>
+            Submit &amp; view result
+          </Button>
         </div>
       </Modal>
     </div>
@@ -413,13 +459,14 @@ function Palette({
       {Array.from({ length: total }).map((_, index) => {
         const id = ids[index];
         const itemResult = id ? isGraded(id) : undefined;
-        const stateClass = id && isMarked(id)
-          ? "border-warning bg-warning-soft text-warning"
-          : itemResult
-            ? itemResult.is_correct
-              ? "border-success bg-success-soft text-success"
-              : "border-danger bg-danger-soft text-danger"
-            : "border-line bg-surface text-muted";
+        const stateClass =
+          id && isMarked(id)
+            ? "border-warning bg-warning-soft text-warning"
+            : itemResult
+              ? itemResult.is_correct
+                ? "border-success bg-success-soft text-success"
+                : "border-danger bg-danger-soft text-danger"
+              : "border-line bg-surface text-muted";
         return (
           <li key={id ?? index}>
             <button

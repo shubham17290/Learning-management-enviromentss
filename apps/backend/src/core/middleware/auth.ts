@@ -97,7 +97,15 @@ export function authorize(...allowedRoles: RoleCode[]): RequestHandler {
 }
 
 /** Any authenticated user. */
-export const requireAuth: RequestHandler = authorize();
+export const requireAuth: RequestHandler = (req, res, next): void => {
+  authenticate(req, res, (error?: unknown): void => {
+    if (error) {
+      next(error);
+      return;
+    }
+    authorize()(req, res, next);
+  });
+};
 
 /** Ownership gate helper (Phase 4 §5.3): violation → 403 FORBIDDEN_NOT_OWNER. */
 export function assertOwnership(resourceUserId: string, req: Request): void {

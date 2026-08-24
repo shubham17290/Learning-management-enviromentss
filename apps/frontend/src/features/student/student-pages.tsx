@@ -1,6 +1,7 @@
 "use client";
 // PG-STD-BKM / PG-STD-MIST / PG-STD-PRF(profile) — student lists + profile view.
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useApi } from "@/hooks/use-api";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,6 +18,7 @@ import { formatDate } from "@/utils/format";
 
 export function BookmarksPage() {
   const [page, setPage] = useState(1);
+  const router = useRouter();
   const { notify } = useToast();
   const { data, loading, error, retry } = useApi(() => studentService.bookmarks(page), [page]);
 
@@ -26,7 +28,10 @@ export function BookmarksPage() {
       notify("Bookmark removed", "info");
       retry();
     } catch (removeError) {
-      notify(removeError instanceof ApiError ? removeError.message : "Could not remove bookmark.", "error");
+      notify(
+        removeError instanceof ApiError ? removeError.message : "Could not remove bookmark.",
+        "error"
+      );
     }
   }
 
@@ -40,7 +45,12 @@ export function BookmarksPage() {
       ) : error ? (
         <ErrorState error={error} retry={retry} />
       ) : (data?.items ?? []).length === 0 ? (
-        <EmptyState icon="⭐" message="No bookmarks yet — star questions while practicing." cta="Start practice" onCta={() => { window.location.href = "/practice"; }} />
+        <EmptyState
+          icon="⭐"
+          message="No bookmarks yet — star questions while practicing."
+          cta="Start practice"
+          onCta={() => router.push("/practice")}
+        />
       ) : (
         <>
           <ul className="flex flex-col gap-3">
@@ -51,9 +61,15 @@ export function BookmarksPage() {
                     <p className="line-clamp-2 font-medium">{bookmark.question.body}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <Badge tone="info">{bookmark.question.subject.name}</Badge>
-                      {bookmark.question.topic && <Badge tone="neutral">{bookmark.question.topic.name}</Badge>}
-                      <Badge tone={difficultyTone(bookmark.question.difficulty)}>{bookmark.question.difficulty}</Badge>
-                      <span className="text-xs text-muted">Saved {formatDate(bookmark.created_at)}</span>
+                      {bookmark.question.topic && (
+                        <Badge tone="neutral">{bookmark.question.topic.name}</Badge>
+                      )}
+                      <Badge tone={difficultyTone(bookmark.question.difficulty)}>
+                        {bookmark.question.difficulty}
+                      </Badge>
+                      <span className="text-xs text-muted">
+                        Saved {formatDate(bookmark.created_at)}
+                      </span>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -63,7 +79,11 @@ export function BookmarksPage() {
                     >
                       Open
                     </Link>
-                    <Button variant="secondary" size="sm" onClick={() => void onRemove(bookmark.id)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void onRemove(bookmark.id)}
+                    >
                       Remove
                     </Button>
                   </div>
@@ -79,13 +99,16 @@ export function BookmarksPage() {
 }
 
 export function MistakesPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const details = useApi(async () => {
     const list = await studentService.mistakes(1);
     const ids = (list.items ?? []).slice(0, 12).map((item) => item.question_id);
     const settled = await Promise.allSettled(ids.map((id) => questionsService.get(id)));
     return settled
-      .filter((entry): entry is PromiseFulfilledResult<PublicQuestion> => entry.status === "fulfilled")
+      .filter(
+        (entry): entry is PromiseFulfilledResult<PublicQuestion> => entry.status === "fulfilled"
+      )
       .map((entry) => entry.value);
   }, []);
 
@@ -94,7 +117,10 @@ export function MistakesPage() {
       <Breadcrumb items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Mistakes" }]} />
       <div className="mt-3 mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Mistake review</h1>
-        <Link href="/practice?mode=mistake" className="touch-target inline-flex items-center rounded-md2 bg-primary px-4 text-sm font-medium text-white">
+        <Link
+          href="/practice?mode=mistake"
+          className="touch-target inline-flex items-center rounded-md2 bg-primary px-4 text-sm font-medium text-white"
+        >
           Practice mistakes →
         </Link>
       </div>
@@ -104,7 +130,12 @@ export function MistakesPage() {
       ) : details.error ? (
         <ErrorState error={details.error} retry={details.retry} />
       ) : (details.data ?? []).length === 0 ? (
-        <EmptyState icon="✨" message="No mistakes — keep it up!" cta="Practice more" onCta={() => { window.location.href = "/practice"; }} />
+        <EmptyState
+          icon="✨"
+          message="No mistakes — keep it up!"
+          cta="Practice more"
+          onCta={() => router.push("/practice")}
+        />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
           {(details.data ?? []).map((question) => (
@@ -142,11 +173,15 @@ export function ProfilePage() {
           <Row label="Full name" value={user?.full_name ?? "—"} />
           <Row label="Email" value={user?.email ?? "—"} />
           <Row label="Role" value={user?.role ?? "—"} />
-          <Row label="Target subject" value={targetSubject?.name ?? (user?.target_subject_id ? "—" : "Not set")} />
+          <Row
+            label="Target subject"
+            value={targetSubject?.name ?? (user?.target_subject_id ? "—" : "Not set")}
+          />
           <Row label="Member since" value={formatDate(user?.created_at)} />
         </dl>
         <p className="mt-4 rounded-md2 bg-warning-soft px-3 py-2 text-xs text-warning" role="note">
-          Profile editing is not available in this release — the backend does not expose a profile-update endpoint yet.
+          Profile editing is not available in this release — the backend does not expose a
+          profile-update endpoint yet.
         </p>
       </Card>
     </div>
@@ -167,9 +202,25 @@ function Pager({ meta, onPage }: { meta?: PaginationMeta; onPage: (page: number)
   const pages = Math.ceil(meta.total / meta.page_size);
   return (
     <nav aria-label="Pagination" className="mt-4 flex items-center justify-between">
-      <Button size="sm" variant="secondary" disabled={meta.page <= 1} onClick={() => onPage(meta.page - 1)}>← Prev</Button>
-      <span className="text-sm text-muted">Page {meta.page} of {pages}</span>
-      <Button size="sm" variant="secondary" disabled={meta.page >= pages} onClick={() => onPage(meta.page + 1)}>Next →</Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={meta.page <= 1}
+        onClick={() => onPage(meta.page - 1)}
+      >
+        ← Prev
+      </Button>
+      <span className="text-sm text-muted">
+        Page {meta.page} of {pages}
+      </span>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={meta.page >= pages}
+        onClick={() => onPage(meta.page + 1)}
+      >
+        Next →
+      </Button>
     </nav>
   );
 }

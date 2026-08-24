@@ -34,7 +34,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   const login = useCallback(
@@ -43,12 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await refresh();
       return result.user.role;
     },
-    [refresh],
+    [refresh]
   );
 
-  const register = useCallback(async (body: { email: string; password: string; full_name: string }) => {
-    await authService.register(body);
-  }, []);
+  const register = useCallback(
+    async (body: { email: string; password: string; full_name: string }) => {
+      await authService.register(body);
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -63,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, status, login, register, logout, refresh }),
-    [user, status, login, register, logout, refresh],
+    [user, status, login, register, logout, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
