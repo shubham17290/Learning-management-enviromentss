@@ -135,15 +135,18 @@ export async function startSession(sessionId: string, userId: string) {
 
   const parsed = practiceRepo.parseSessionConfig(session.config);
   if (!parsed.pool || parsed.pool.length === 0) {
-    const candidates = await questionsRepo.poolCandidateIds(
-      {
-        subjectId: parsed.filters.subject_id,
-        topicId: parsed.filters.topic_id,
-        year: parsed.filters.year,
-        difficulty: parsed.filters.difficulty,
-      },
-      MAX_POOL_CANDIDATES,
-    );
+    const poolFilters: questionsRepo.QuestionFilters = {
+      subjectId: parsed.filters.subject_id,
+      topicId: parsed.filters.topic_id,
+      year: parsed.filters.year,
+      difficulty: parsed.filters.difficulty,
+    };
+    // Mirror createSession: honor a single requested question type when building the pool,
+    // otherwise startSession could draw questions of the wrong type into an MSQ/NAT session.
+    if (parsed.filters.question_types && parsed.filters.question_types.length === 1) {
+      poolFilters.typeCode = parsed.filters.question_types[0];
+    }
+    const candidates = await questionsRepo.poolCandidateIds(poolFilters, MAX_POOL_CANDIDATES);
     parsed.pool = shuffle(candidates).slice(0, session.totalQuestions);
     await practiceRepo.savePool(session.id, parsed);
   }

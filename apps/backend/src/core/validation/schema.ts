@@ -144,12 +144,6 @@ export class Validator {
     if (options.unique && new Set(items).size !== items.length) {
       this.details.push({ field: key, code: "VALIDATION_DUPLICATE", message: `"${key}" must not contain duplicates.` });
     }
-    for (const item of items) {
-      if (!isUuid(item)) {
-        this.details.push({ field: key, code: "VALIDATION_INVALID_UUID", message: `"${key}" must contain UUIDs only.` });
-        break;
-      }
-    }
     return items;
   }
 

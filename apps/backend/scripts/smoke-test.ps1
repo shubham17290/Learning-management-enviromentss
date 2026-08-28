@@ -30,7 +30,11 @@ function Find-JarEmail($jar) {
 function Invoke-Api($method, $path, $jar, $body, $expectStatus) {
   $args = @("-s", "-o", "$Tmp\gate-body.json", "-w", "%{http_code}", "-X", $method, "$Base$path")
   if ($jar) { $args += @("-b", $jar, "-c", $jar) }
-  if ($null -ne $body) { $args += @("-H", "Content-Type: application/json", "--data-binary", ($body | ConvertTo-Json -Depth 8)) }
+  if ($null -ne $body) {
+    $bodyFile = Join-Path $Tmp "gate-request.json"
+    $body | ConvertTo-Json -Depth 8 -Compress | Set-Content -Path $bodyFile -Encoding UTF8 -NoNewline
+    $args += @("-H", "Content-Type: application/json", "--data-binary", "@$bodyFile")
+  }
   $code = & curl.exe @args
   $raw = Get-Content "$Tmp\gate-body.json" -Raw
   $json = if ($raw) { $raw | ConvertFrom-Json } else { $null }
@@ -46,10 +50,9 @@ function Assert($cond, $label) {
   else { Write-Host "FAIL: $label" -ForegroundColor Red; exit 1 }
 }
 
-if (-not (Test-Path "$Tmp\gate-users.json")) {
-  @{ stamp = (Get-Random).ToString() } | ConvertTo-Json | Set-Content "$Tmp\gate-users.json"
-}
-$state = Get-Content "$Tmp\gate-users.json" -Raw | ConvertFrom-Json
+# Fresh per-run stamp so the script is rerunnable without deleting DB accounts.
+$state = @{ stamp = (Get-Random).ToString() }
+@{ stamp = $state.stamp } | ConvertTo-Json | Set-Content "$Tmp\gate-users.json"
 $stamp = $state.stamp
 
 $JarA = "$Tmp\gate-a.jar"; $JarB = "$Tmp\gate-b.jar"; $JarM = "$Tmp\gate-m.jar"; $JarN = "$Tmp\gate-n.jar"

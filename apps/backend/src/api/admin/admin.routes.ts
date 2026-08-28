@@ -1,6 +1,6 @@
 // PHASE 8 — Admin API: taxonomy CRUD, question lifecycle, users, audit (Phase 4 §2.7, §3.1)
 import { Router } from "express";
-import { authorize, requirePrincipal } from "../../core/middleware/auth";
+import { authenticate, authorize, requirePrincipal } from "../../core/middleware/auth";
 import { ROLE_CODES } from "../../core/config/env";
 import { errors } from "../../core/errors";
 import * as contentService from "../../core/services/content.service";
@@ -15,6 +15,9 @@ import { asyncHandler, ok, pageParams, paginationMeta } from "../../core/utils/h
 import { isUuid, Validator } from "../../core/validation/schema";
 
 export const adminRouter = Router();
+
+// Authenticate every admin route first; role gates (below) then enforce RBAC.
+adminRouter.use(authenticate);
 
 // Moderator: read + review + publish/reject questions only (Phase 4 §5.2).
 const modOrAdmin = authorize("moderator", "admin");
