@@ -1,0 +1,30 @@
+# One-Shot Funding Configuration - Fully Optimized
+github: [shubham17290]      # REQUIRED: Your GitHub username (e.g., octocat)
+ko_fi: shubham1729           # PICK THIS: Your Ko-fi username (skip buy_me_a_coffee)
+buy_me_a_coffee: # LEAVE BLANK
+patreon: # LEAVE BLANK
+open_collective: # LEAVE BLANK (only for teams)
+custom: ['https://www.paypal.com/mep/dashboard'] # REQUIRED: Catch-all for non-GitHub users
+# -----------------------------------------------
+# DO NOT TOUCH ANYTHING BELOW THIS LINE (Leave blank)
+tidelift: 
+community_bridge: 
+liberapay: 
+issuehunt: 
+lfx_crowdfunding: 
+polar: 
+thanks_dev: 
+
+
+<!-- SPONSOR BADGE - Makes the button visually pop -->
+[![Sponsor this project](https://img.shields.io/badge/Sponsor_This_Project-%E2%9D%A4-red?style=for-the-badge&logo=github)](https://github.com/sponsors/YOUR_GITHUB_USERNAME)
+
+<!-- SPONSOR PITCH - This is what makes people actually click -->
+## 💖 Supporting this Project
+Maintaining this project takes time and server costs (~$20/month). If this tool saves you time, please consider supporting it:
+
+- 🥇 **$5/mo** - Get your name on the Sponsor Wall in the README.
+- 🥈 **$25/mo** - Priority support for your issues and feature requests.
+- 🥉 **$100/mo** - Your company logo here + 1-hour direct consulting call.
+
+> **Prefer one-time?** [Buy me a coffee ☕](https://ko-fi.com/YOUR_KOFI_USERNAME) or [PayPal me](https://paypal.me/YOUR_PAYPAL_HANDLE).
