@@ -50,10 +50,14 @@ function Assert($cond, $label) {
   else { Write-Host "FAIL: $label" -ForegroundColor Red; exit 1 }
 }
 
-# Fresh per-run stamp so the script is rerunnable without deleting DB accounts.
-$state = @{ stamp = (Get-Random).ToString() }
-@{ stamp = $state.stamp } | ConvertTo-Json | Set-Content "$Tmp\gate-users.json"
-$stamp = $state.stamp
+# Stage 2 reuses the accounts created by Stage 1. Stage 1 always regenerates a
+# fresh stamp so it is rerunnable without deleting DB accounts (duplicate 409s).
+if ($Stage -eq 2 -and (Test-Path "$Tmp\gate-users.json")) {
+  $stamp = (Get-Content "$Tmp\gate-users.json" -Raw | ConvertFrom-Json).stamp
+} else {
+  $stamp = (Get-Random).ToString()
+  @{ stamp = $stamp } | ConvertTo-Json | Set-Content "$Tmp\gate-users.json"
+}
 
 $JarA = "$Tmp\gate-a.jar"; $JarB = "$Tmp\gate-b.jar"; $JarM = "$Tmp\gate-m.jar"; $JarN = "$Tmp\gate-n.jar"
 
@@ -116,8 +120,8 @@ Invoke-Api "POST" "/auth/login" $JarM @{ email = "gate-test-m-$stamp@test.local"
 Invoke-Api "POST" "/auth/login" $JarN @{ email = "gate-test-n-$stamp@test.local"; password = "passw0rd1" } 200 | Out-Null
 
 # ─── Admin taxonomy setup ────────────────────────────────────────────────────
-$subject = Invoke-Api "POST" "/admin/subjects" $JarN @{ code = "algo$($stamp.Substring(0,4))"; name = "Algorithms Test"; sort_order = 1 } 
-if ($subject.code -ne 201) { $subject = Invoke-Api "POST" "/admin/subjects" $JarN @{ code = "algo$(Get-Random)"; name = "Algorithms Test"; sort_order = 1 } 201 }
+$subject = Invoke-Api "POST" "/admin/subjects" $JarN @{ code = "algo$stamp"; name = "Algorithms $stamp"; sort_order = 1 }
+if ($subject.code -ne 201) { $subject = Invoke-Api "POST" "/admin/subjects" $JarN @{ code = "algo$(Get-Random)"; name = "Algorithms $(Get-Random)"; sort_order = 1 } 201 }
 $subjectId = $subject.body.data.id
 Assert ($null -ne $subjectId) "admin create subject"
 
@@ -225,7 +229,7 @@ function Submit-Attempt($questionId, $answer, $expect) {
 }
 
 # MCQ correct → +1.
-$mcqOptionsRaw = (Invoke-Api "GET" "/questions/$mcqId?include_answer=true" $JarN $null 200).body.data.answers.options
+$mcqOptionsRaw = (Invoke-Api "GET" "/questions/${mcqId}?include_answer=true" $JarN $null 200).body.data.answers.options
 $mcqCorrect = ($mcqOptionsRaw | Where-Object { $_.is_correct }).id
 $mcqWrong = ($mcqOptionsRaw | Where-Object { -not $_.is_correct } | Select-Object -First 1).id
 
@@ -245,7 +249,7 @@ $b1 = Invoke-Api "POST" "/practice-sessions/$($secondSession.body.data.id)/attem
 Assert ([math]::Abs([double]$b1.body.data.marks - (-0.33)) -lt 0.001) "MCQ wrong -> -0.33 negative mark"
 
 # MSQ exact set → full +2; proper subset → partial; wrong pick → 0/negative.
-$msqAnswers = (Invoke-Api "GET" "/questions/$msqId?include_answer=true" $JarN $null 200).body.data.answers.options
+$msqAnswers = (Invoke-Api "GET" "/questions/${msqId}?include_answer=true" $JarN $null 200).body.data.answers.options
 $msqCorrectIds = @($msqAnswers | Where-Object { $_.is_correct } | ForEach-Object { $_.id })
 $msqWrongIds = @($msqAnswers | Where-Object { -not $_.is_correct } | ForEach-Object { $_.id })
 
@@ -306,7 +310,9 @@ Invoke-Api "DELETE" "/bookmarks/$($bm.body.data.id)" $JarA $null 204 | Out-Null
 
 # ─── Analytics & dashboard ───────────────────────────────────────────────────
 $ov = Invoke-Api "GET" "/performance/overview" $JarB $null 200
-Assert ($ov.body.data.total_attempts -ge 4) "performance overview counts attempts"
+# Attempts are upserted per question (idempotent, verified above), so student B's
+# grading pool of exactly 3 distinct questions (MCQ, MSQ, NAT) yields 3 attempt rows.
+Assert ($ov.body.data.total_attempts -ge 3) "performance overview counts attempts"
 
 $topicsPerf = Invoke-Api "GET" "/performance/topics" $JarB $null 200
 Assert ($null -ne $topicsPerf.body.data.items) "performance topics list"
